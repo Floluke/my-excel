@@ -1,18 +1,21 @@
-export default function ColumnConfig({ columns, onToggle, onRename }) {
-  if (!columns || columns.length === 0) return null;
+import { useState } from 'react';
 
-  const enabledCount = columns.filter((c) => c.enabled).length;
+export default function ColumnConfig({ columns, onToggle, onRename, onFormat, onAdd, onDelete }) {
+  const [newColumn, setNewColumn] = useState('');
+  const safeColumns = columns || [];
+
+  const enabledCount = safeColumns.filter((c) => c.enabled).length;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4">
       <h3 className="font-semibold text-gray-800 mb-3">
         Columns
         <span className="ml-2 text-sm font-normal text-gray-500">
-          ({enabledCount}/{columns.length} enabled)
+          ({enabledCount}/{safeColumns.length} enabled)
         </span>
       </h3>
       <div className="space-y-2 max-h-80 overflow-y-auto">
-        {columns.map((col) => (
+        {safeColumns.map((col) => (
           <div key={col.field} className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -31,9 +34,42 @@ export default function ColumnConfig({ columns, onToggle, onRename }) {
               className="flex-1 text-sm border border-gray-200 rounded px-2 py-1 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
               placeholder="Header name"
             />
+            <select
+              value={col.format || 'general'}
+              onChange={(event) => onFormat(col.field, event.target.value)}
+              className="w-24 text-xs border border-gray-200 rounded px-1.5 py-1 outline-none focus:border-blue-400"
+              aria-label={`Format ${col.header}`}
+            >
+              <option value="general">Text</option>
+              <option value="number">Number</option>
+              <option value="date">Date</option>
+            </select>
+            <button type="button" onClick={() => onDelete(col.field)} className="text-xs text-red-500 hover:text-red-700" aria-label={`Delete ${col.header}`}>
+              ×
+            </button>
           </div>
         ))}
       </div>
+      <form
+        className="mt-3 flex gap-2 border-t border-gray-100 pt-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const field = newColumn.trim();
+          if (!field || safeColumns.some((column) => column.field === field)) return;
+          onAdd(field);
+          setNewColumn('');
+        }}
+      >
+        <input
+          value={newColumn}
+          onChange={(event) => setNewColumn(event.target.value)}
+          placeholder="New column"
+          className="min-w-0 flex-1 text-sm border border-gray-200 rounded px-2 py-1 outline-none focus:border-blue-400"
+        />
+        <button type="submit" className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700">
+          Add
+        </button>
+      </form>
     </div>
   );
 }

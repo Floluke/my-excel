@@ -1,46 +1,103 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
+import ExcelJS from 'exceljs';
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let value = '';
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '"' && text[index + 1] === '"' && quoted) {
+      value += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === ',' && !quoted) {
+      row.push(value);
+      value = '';
+    } else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && text[index + 1] === '\n') index += 1;
+      row.push(value);
+      if (row.some((cell) => cell !== '')) rows.push(row);
+      row = [];
+      value = '';
+    } else {
+      value += char;
+    }
+  }
+  if (value || row.length) {
+    row.push(value);
+    rows.push(row);
+  }
+  if (rows.length < 2) return [];
+  const headers = rows[0].map((header, index) => header.trim() || `Column${index + 1}`);
+  return rows.slice(1).map((cells) => Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ''])));
+}
+
+async function parseXlsx(file) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await file.arrayBuffer());
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) return [];
+  const headers = worksheet.getRow(1).values.slice(1).map((value, index) => String(value ?? `Column${index + 1}`));
+  const data = [];
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const values = row.values.slice(1);
+    const item = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? '']));
+    if (Object.values(item).some((value) => value !== '')) data.push(item);
+  });
+  return data;
+}
 
 export default function FileUpload({ onJsonParsed, hasData }) {
   const [error, setError] = useState('');
 
   const onDrop = useCallback(
-    (acceptedFiles) => {
+    async (acceptedFiles) => {
       const file = acceptedFiles[0];
       if (!file) return;
       setError('');
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const text = e.target.result;
-          const data = JSON.parse(text);
+      try {
+          let data;
+          const extension = file.name.toLowerCase();
+          if (extension.endsWith('.xlsx')) {
+            data = await parseXlsx(file);
+          } else {
+            const text = await file.text();
+            data = extension.endsWith('.csv') ? parseCsv(text) : JSON.parse(text);
+          }
           if (!Array.isArray(data) || data.length === 0) {
-            setError('JSON must be a non-empty array of objects.');
+            setError('The file must contain at least one data row.');
             return;
           }
           if (data.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) {
             setError('Every item in the JSON array must be an object.');
             return;
           }
-          if (data.some((item) => Object.values(item).some((value) => value !== null && typeof value === 'object'))) {
+          if (data.some((item) => Object.values(item).some((value) => value !== null && typeof value === 'object' && !(value instanceof Date)))) {
             setError('Nested objects and arrays are not supported yet. Flatten the data and try again.');
             return;
           }
-          const name = file.name.replace(/\.json$/i, '');
+          const name = file.name.replace(/\.(json|csv|xlsx)$/i, '');
           onJsonParsed(data, name);
-        } catch {
-          setError('Invalid JSON file. Check the file format and try again.');
-        }
-      };
-      reader.readAsText(file);
+      } catch (parseError) {
+        setError(`Could not read file: ${parseError.message}`);
+      }
     },
     [onJsonParsed]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'application/json': ['.json'] },
+    accept: {
+      'application/json': ['.json'],
+      'text/csv': ['.csv'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+    },
     multiple: false,
   });
 
@@ -64,9 +121,9 @@ export default function FileUpload({ onJsonParsed, hasData }) {
             />
           </svg>
           <p className="text-lg font-medium text-gray-700">
-            {isDragActive ? 'Drop JSON here' : 'Drop a JSON file here'}
+            {isDragActive ? 'Drop file here' : 'Drop JSON, CSV, or XLSX file here'}
           </p>
-          <p className="text-sm text-gray-500">or click to browse — array of objects format</p>
+          <p className="text-sm text-gray-500">or click to browse — first row is used as headers</p>
         </div>
       </div>
       {error && (

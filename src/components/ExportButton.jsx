@@ -9,7 +9,7 @@ function base64WithoutHeader(dataUrl) {
 export default function ExportButton({ config, chartRef }) {
   const [loading, setLoading] = useState(false);
 
-  const { jsonData, columns, headerStyle, cellStyle, alternateRow, alternateRowColor, fileName, headerText, chartConfig } = config;
+  const { jsonData, columns, headerStyle, cellStyle, alternateRow, alternateRowColor, fileName, headerText, chartConfig, freezeHeader } = config;
 
   const enabledCount = columns.filter((c) => c.enabled).length;
 
@@ -33,6 +33,7 @@ export default function ExportButton({ config, chartRef }) {
         fileName,
         headerText: headerText.text ? headerText : null,
         chartImageBase64,
+        freezeHeader,
       });
     } catch (err) {
       alert('Export failed: ' + err.message);

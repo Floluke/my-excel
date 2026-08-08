@@ -25,6 +25,7 @@ export async function generateExcel({
   fileName,
   headerText,
   chartImageBase64,
+  freezeHeader,
 }) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'CEXCEL';
@@ -39,8 +40,12 @@ export async function generateExcel({
     header: col.header,
     key: col.field,
     width: Math.max(col.header.length * 2 + 4, 14),
+    style: col.format === 'number'
+      ? { numFmt: '#,##0.00' }
+      : col.format === 'date' ? { numFmt: 'yyyy-mm-dd' } : undefined,
   }));
   worksheet.columns = excelCols;
+  if (freezeHeader) worksheet.views = [{ state: 'frozen', ySplit: 1 + (headerText?.text ? 1 : 0) }];
 
   let rowOffset = 0;
 
@@ -101,9 +106,16 @@ export async function generateExcel({
   const rows = jsonData.map((item) => {
     const row = {};
     enabledCols.forEach((col) => {
-      row[col.field] = item[col.field] !== undefined && item[col.field] !== null
-        ? item[col.field]
-        : '';
+      const value = item[col.field];
+      if (value === undefined || value === null || value === '') {
+        row[col.field] = '';
+      } else if (col.format === 'number' && Number.isFinite(Number(value))) {
+        row[col.field] = Number(value);
+      } else if (col.format === 'date' && !Number.isNaN(Date.parse(value))) {
+        row[col.field] = new Date(value);
+      } else {
+        row[col.field] = value;
+      }
     });
     return row;
   });

@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 
@@ -92,7 +93,26 @@ function ChartPreview({ chartConfig, jsonData, chartRef }) {
   );
 }
 
-export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRow, onDeleteRow, headerStyle, cellStyle, alternateRow, alternateRowColor, headerText, chartConfig, chartRef }) {
+export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRow, onDeleteRow, onRenameColumn, onAddColumn, onDeleteColumn, freezeHeader, onFreezeHeader, headerStyle, cellStyle, alternateRow, alternateRowColor, headerText, chartConfig, chartRef }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sort, setSort] = useState({ field: '', direction: 'asc' });
+  const visibleRows = useMemo(() => {
+    if (!jsonData) return [];
+    const query = searchTerm.trim().toLowerCase();
+    const rows = jsonData
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => !query || Object.values(item).some((value) => String(value ?? '').toLowerCase().includes(query)));
+    if (!sort.field) return rows.slice(0, 50);
+    return rows.sort(({ item: left }, { item: right }) => {
+      const a = left[sort.field] ?? '';
+      const b = right[sort.field] ?? '';
+      const result = typeof a === 'number' && typeof b === 'number'
+        ? a - b
+        : String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+      return sort.direction === 'asc' ? result : -result;
+    }).slice(0, 50);
+  }, [jsonData, searchTerm, sort]);
+
   if (!jsonData || !columns) return null;
 
   const enabledCols = columns.filter((c) => c.enabled);
@@ -119,9 +139,27 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
           {headerText.text}
         </div>
       )}
+      <div className="mb-3 flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex flex-1 items-center gap-2 text-sm text-gray-500">
+          <span className="sr-only">Search rows</span>
+          <input
+            type="search"
+            data-grid-search
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search rows..."
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-xs text-gray-500">
+          <input type="checkbox" checked={freezeHeader} onChange={(event) => onFreezeHeader(event.target.checked)} />
+          Freeze header
+        </label>
+        <span className="text-xs text-gray-400">{visibleRows.length} shown / {jsonData.length} total</span>
+      </div>
       <div className="overflow-x-auto rounded-xl border border-gray-200">
         <table className="w-full text-sm">
-          <thead>
+          <thead className={freezeHeader ? 'sticky top-0 z-10' : ''}>
             <tr>
               {enabledCols.map((col) => (
                 <th
@@ -136,14 +174,35 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
                   }}
                   className="px-4 py-2.5 text-left whitespace-nowrap"
                 >
-                  {col.header}
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={col.header}
+                      onChange={(event) => onRenameColumn(col.field, event.target.value)}
+                      className="min-w-20 flex-1 bg-transparent font-semibold outline-none focus:ring-1 focus:ring-white"
+                      aria-label={`Rename ${col.header}`}
+                    />
+                    <button
+                      type="button"
+                      className="text-left"
+                      onClick={() => setSort((current) => ({
+                        field: col.field,
+                        direction: current.field === col.field && current.direction === 'asc' ? 'desc' : 'asc',
+                      }))}
+                      aria-label={`Sort ${col.header}`}
+                    >
+                      {sort.field === col.field ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
+                    </button>
+                    <button type="button" onClick={() => onDeleteColumn(col.field)} className="text-xs opacity-70 hover:opacity-100" aria-label={`Delete ${col.header}`}>
+                      ×
+                    </button>
+                  </div>
                 </th>
               ))}
               <th className="bg-gray-50 px-2 py-2 text-left text-xs font-medium text-gray-400">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {jsonData.slice(0, 50).map((item, rowIdx) => {
+            {visibleRows.map(({ item, index: rowIdx }) => {
               const isAlt = alternateRow && rowIdx % 2 === 1;
               const bgColor = isAlt ? alternateRowColor : cellStyle.fillColor;
 
@@ -163,7 +222,7 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
                     >
                       <input
                         aria-label={`${col.header}, row ${rowIdx + 1}`}
-                        value={item[col.field] ?? ''}
+                        value={item[col.field] instanceof Date ? item[col.field].toISOString().slice(0, 10) : item[col.field] ?? ''}
                         onChange={(event) => onUpdateCell(rowIdx, col.field, event.target.value)}
                         className="w-full min-w-24 bg-transparent outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset"
                       />
@@ -195,6 +254,9 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
             + Add row
           </button>
         </div>
+        <button type="button" onClick={() => onAddColumn()} className="w-full border-t border-gray-200 bg-white px-3 py-2 text-left text-sm font-medium text-blue-600 hover:bg-blue-50">
+          + Add column
+        </button>
       </div>
       <ChartPreview chartConfig={chartConfig} jsonData={jsonData} chartRef={chartRef} />
     </div>

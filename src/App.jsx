@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useExcelConfig } from './hooks/useExcelConfig';
 import FileUpload from './components/FileUpload';
 import ColumnConfig from './components/ColumnConfig';
@@ -16,6 +16,9 @@ export default function App() {
     setJsonData,
     toggleColumn,
     renameColumn,
+    setColumnFormat,
+    addColumn,
+    deleteColumn,
     updateCell,
     addRow,
     deleteRow,
@@ -24,16 +27,41 @@ export default function App() {
     setAlternateRow,
     setHeaderText,
     setChartConfig,
+    setFreezeHeader,
     reset,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useExcelConfig();
 
   const {
     jsonData, fileName, columns,
     headerStyle, cellStyle, alternateRow, alternateRowColor,
     headerText, chartConfig,
+    freezeHeader,
   } = state;
 
   const hasData = jsonData !== null;
+
+  useEffect(() => {
+    const handleShortcut = (event) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z') {
+        event.preventDefault();
+        undo();
+      } else if (key === 'y' || (event.shiftKey && key === 'z')) {
+        event.preventDefault();
+        redo();
+      } else if (key === 'f') {
+        event.preventDefault();
+        document.querySelector('[data-grid-search]')?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [undo, redo]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -57,22 +85,34 @@ export default function App() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500">File:</span>
-                <span className="text-sm font-medium text-gray-700">{fileName}.json</span>
+                <span className="text-sm font-medium text-gray-700">{fileName}</span>
                 <span className="text-xs text-gray-400 bg-gray-200 rounded-full px-2 py-0.5">
                   {jsonData.length} rows
                 </span>
               </div>
-              <button
-                onClick={reset}
-                className="text-sm text-red-500 hover:text-red-700 transition-colors"
-              >
-                Reset
-              </button>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={undo} disabled={!canUndo} className="text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300">
+                  Undo
+                </button>
+                <button type="button" onClick={redo} disabled={!canRedo} className="text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300">
+                  Redo
+                </button>
+                <button type="button" onClick={reset} className="text-sm text-red-500 hover:text-red-700 transition-colors">
+                  Reset
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <div className="space-y-4">
-                <ColumnConfig columns={columns} onToggle={toggleColumn} onRename={renameColumn} />
+                <ColumnConfig
+                  columns={columns}
+                  onToggle={toggleColumn}
+                  onRename={renameColumn}
+                  onFormat={setColumnFormat}
+                  onAdd={addColumn}
+                  onDelete={deleteColumn}
+                />
                 <HeaderTextEditor headerText={headerText} onChange={setHeaderText} />
                 <ChartConfigEditor chartConfig={chartConfig} columns={columns} onChange={setChartConfig} />
               </div>
@@ -102,6 +142,11 @@ export default function App() {
                   onUpdateCell={updateCell}
                   onAddRow={addRow}
                   onDeleteRow={deleteRow}
+                  onRenameColumn={renameColumn}
+                  onAddColumn={addColumn}
+                  onDeleteColumn={deleteColumn}
+                  freezeHeader={freezeHeader}
+                  onFreezeHeader={setFreezeHeader}
                 headerStyle={headerStyle}
                 cellStyle={cellStyle}
                 alternateRow={alternateRow}
