@@ -1,9 +1,11 @@
 export default function HeaderTextEditor({ headerText, onChange }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <h3 className="font-semibold text-gray-800 mb-3">Header Text</h3>
+      <h3 className="font-semibold text-gray-800 mb-3">Report title</h3>
       <div className="space-y-3">
+        <label htmlFor="report-title" className="text-xs text-gray-500">Title</label>
         <input
+          id="report-title"
           type="text"
           value={headerText.text}
           onChange={(e) => onChange({ text: e.target.value })}
@@ -12,8 +14,9 @@ export default function HeaderTextEditor({ headerText, onChange }) {
         />
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Font</label>
+            <label htmlFor="report-title-font" className="text-xs text-gray-500 block mb-1">Font</label>
             <select
+              id="report-title-font"
               value={headerText.fontName}
               onChange={(e) => onChange({ fontName: e.target.value })}
               className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 outline-none focus:border-blue-400"
@@ -24,9 +27,10 @@ export default function HeaderTextEditor({ headerText, onChange }) {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Size</label>
+            <label htmlFor="report-title-size" className="text-xs text-gray-500 block mb-1">Size</label>
             <input
               type="number"
+              id="report-title-size"
               min={8}
               max={72}
               value={headerText.fontSize}
@@ -35,8 +39,9 @@ export default function HeaderTextEditor({ headerText, onChange }) {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500">Color</label>
+            <label htmlFor="report-title-color" className="text-xs text-gray-500">Color</label>
             <input
+              id="report-title-color"
               type="color"
               value={headerText.fontColor}
               onChange={(e) => onChange({ fontColor: e.target.value })}

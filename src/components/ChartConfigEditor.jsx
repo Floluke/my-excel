@@ -2,8 +2,8 @@ export default function ChartConfigEditor({ chartConfig, columns, onChange }) {
   const enabledFields = columns.filter((c) => c.enabled);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <h3 className="font-semibold text-gray-800 mb-3">Chart</h3>
+    <div>
+      <p className="mb-3 text-sm text-gray-500">Add an optional visual to the exported workbook.</p>
       <div className="space-y-3">
         <label className="flex items-center gap-2">
           <input
@@ -46,11 +46,11 @@ export default function ChartConfigEditor({ chartConfig, columns, onChange }) {
               <label className="text-xs text-gray-500 block mb-1">X-Axis (Category)</label>
               <select
                 value={chartConfig.xField}
-                onChange={(e) => onChange({ xField: e.target.value })}
+                onChange={(e) => onChange({ xField: e.target.value, ...(e.target.value === chartConfig.yField ? { yField: '' } : {}) })}
                 className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 outline-none focus:border-blue-400"
               >
                 <option value="">-- Select --</option>
-                {enabledFields.map((col) => (
+                {enabledFields.filter((col) => col.field !== chartConfig.yField).map((col) => (
                   <option key={col.field} value={col.field}>
                     {col.header}
                   </option>
@@ -66,7 +66,7 @@ export default function ChartConfigEditor({ chartConfig, columns, onChange }) {
                 className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 outline-none focus:border-blue-400"
               >
                 <option value="">-- Select --</option>
-                {enabledFields.map((col) => (
+                {enabledFields.filter((col) => col.field !== chartConfig.xField).map((col) => (
                   <option key={col.field} value={col.field}>
                     {col.header}
                   </option>

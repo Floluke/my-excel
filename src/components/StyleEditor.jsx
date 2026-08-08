@@ -1,10 +1,12 @@
 const BORDER_OPTIONS = ['none', 'thin', 'medium', 'thick', 'dotted', 'dashed', 'double'];
 
-function ColorInput({ label, value, onChange }) {
+function ColorInput({ label, value, onChange, prefix }) {
+  const inputId = `${prefix}-${label.toLowerCase().replace(/\s+/g, '-')}`;
   return (
     <div className="flex items-center gap-2">
-      <label className="text-xs text-gray-500 w-20">{label}</label>
+      <label htmlFor={inputId} className="text-xs text-gray-500 w-20">{label}</label>
       <input
+        id={inputId}
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -24,7 +26,7 @@ function Section({ title, children }) {
   );
 }
 
-function FontSection({ style, onChange }) {
+function FontSection({ style, onChange, prefix }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       <div>
@@ -50,13 +52,13 @@ function FontSection({ style, onChange }) {
           className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 outline-none focus:border-blue-400"
         />
       </div>
-      <ColorInput label="Font Color" value={style.fontColor} onChange={(v) => onChange({ fontColor: v })} />
-      <ColorInput label="Fill Color" value={style.fillColor} onChange={(v) => onChange({ fillColor: v })} />
+      <ColorInput prefix={prefix} label="Font Color" value={style.fontColor} onChange={(v) => onChange({ fontColor: v })} />
+      <ColorInput prefix={prefix} label="Fill Color" value={style.fillColor} onChange={(v) => onChange({ fillColor: v })} />
     </div>
   );
 }
 
-function BorderSection({ style, onChange }) {
+function BorderSection({ style, onChange, prefix }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       <div>
@@ -71,7 +73,7 @@ function BorderSection({ style, onChange }) {
           ))}
         </select>
       </div>
-      <ColorInput label="Border Color" value={style.borderColor} onChange={(v) => onChange({ borderColor: v })} />
+      <ColorInput prefix={prefix} label="Border Color" value={style.borderColor} onChange={(v) => onChange({ borderColor: v })} />
     </div>
   );
 }
@@ -88,8 +90,8 @@ export function HeaderStyleEditor({ style, onChange }) {
         />
         <span className="text-sm text-gray-700">Bold</span>
       </label>
-      <FontSection style={style} onChange={onChange} />
-      <BorderSection style={style} onChange={onChange} />
+      <FontSection prefix="header" style={style} onChange={onChange} />
+      <BorderSection prefix="header" style={style} onChange={onChange} />
     </Section>
   );
 }
@@ -97,8 +99,8 @@ export function HeaderStyleEditor({ style, onChange }) {
 export function CellStyleEditor({ style, onChange, alternateRow, alternateRowColor, onAlternateChange }) {
   return (
     <Section title="Cell Style">
-      <FontSection style={style} onChange={onChange} />
-      <BorderSection style={style} onChange={onChange} />
+      <FontSection prefix="cell" style={style} onChange={onChange} />
+      <BorderSection prefix="cell" style={style} onChange={onChange} />
       <div className="border-t border-gray-100 pt-3 mt-2">
         <label className="flex items-center gap-2 mb-2">
           <input
@@ -111,6 +113,7 @@ export function CellStyleEditor({ style, onChange, alternateRow, alternateRowCol
         </label>
         {alternateRow && (
           <ColorInput
+            prefix="cell-alternate"
             label="Alt Color"
             value={alternateRowColor}
             onChange={(v) => onAlternateChange(true, v)}

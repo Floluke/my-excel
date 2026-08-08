@@ -123,7 +123,8 @@ export default function FileUpload({ onJsonParsed, hasData }) {
           <p className="text-lg font-medium text-gray-700">
             {isDragActive ? 'Drop file here' : 'Drop JSON, CSV, or XLSX file here'}
           </p>
-          <p className="text-sm text-gray-500">or click to browse — first row is used as headers</p>
+           <p className="text-sm text-gray-500">or click to browse - JSON arrays, CSV, and XLSX are supported</p>
+           <p className="max-w-md text-xs text-gray-400">JSON files must contain a flat array of objects. Nested objects and arrays need to be flattened first.</p>
         </div>
       </div>
       {error && (

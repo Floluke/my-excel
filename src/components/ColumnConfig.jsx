@@ -44,8 +44,18 @@ export default function ColumnConfig({ columns, onToggle, onRename, onFormat, on
               <option value="number">Number</option>
               <option value="date">Date</option>
             </select>
-            <button type="button" onClick={() => onDelete(col.field)} className="text-xs text-red-500 hover:text-red-700" aria-label={`Delete ${col.header}`}>
-              ×
+            <button
+              type="button"
+              onClick={() => {
+                if (safeColumns.length === 1) return;
+                if (window.confirm(`Delete the ${col.header} column? Its data will be removed from every row.`)) onDelete(col.field);
+              }}
+              disabled={safeColumns.length === 1}
+              className="text-xs text-red-500 hover:text-red-700 disabled:text-gray-300 disabled:cursor-not-allowed"
+              aria-label={`Delete ${col.header}`}
+              title={safeColumns.length === 1 ? 'Keep at least one column' : `Delete ${col.header}`}
+            >
+              Delete
             </button>
           </div>
         ))}

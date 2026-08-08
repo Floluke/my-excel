@@ -93,7 +93,7 @@ function ChartPreview({ chartConfig, jsonData, chartRef }) {
   );
 }
 
-export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRow, onDeleteRow, onRenameColumn, onAddColumn, onDeleteColumn, freezeHeader, onFreezeHeader, headerStyle, cellStyle, alternateRow, alternateRowColor, headerText, chartConfig, chartRef }) {
+export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRow, onDeleteRow, freezeHeader, onFreezeHeader, headerStyle, cellStyle, alternateRow, alternateRowColor, headerText, chartConfig, chartRef }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sort, setSort] = useState({ field: '', direction: 'asc' });
   const visibleRows = useMemo(() => {
@@ -116,6 +116,9 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
   if (!jsonData || !columns) return null;
 
   const enabledCols = columns.filter((c) => c.enabled);
+  const invalidChartValues = chartConfig.enabled && chartConfig.yField
+    ? jsonData.filter((item) => item[chartConfig.yField] !== '' && !Number.isFinite(Number(item[chartConfig.yField]))).length
+    : 0;
   if (enabledCols.length === 0) {
     return (
       <div className="text-center py-8 text-gray-400 text-sm">
@@ -174,13 +177,8 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
                   }}
                   className="px-4 py-2.5 text-left whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1">
-                    <input
-                      value={col.header}
-                      onChange={(event) => onRenameColumn(col.field, event.target.value)}
-                      className="min-w-20 flex-1 bg-transparent font-semibold outline-none focus:ring-1 focus:ring-white"
-                      aria-label={`Rename ${col.header}`}
-                    />
+            <div className="flex items-center gap-1">
+                    <span className="min-w-20 flex-1">{col.header}</span>
                     <button
                       type="button"
                       className="text-left"
@@ -191,9 +189,6 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
                       aria-label={`Sort ${col.header}`}
                     >
                       {sort.field === col.field ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
-                    </button>
-                    <button type="button" onClick={() => onDeleteColumn(col.field)} className="text-xs opacity-70 hover:opacity-100" aria-label={`Delete ${col.header}`}>
-                      ×
                     </button>
                   </div>
                 </th>
@@ -231,7 +226,9 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
                   <td className="px-2 py-2 bg-white">
                     <button
                       type="button"
-                      onClick={() => onDeleteRow(rowIdx)}
+                      onClick={() => {
+                        if (window.confirm(`Delete row ${rowIdx + 1}?`)) onDeleteRow(rowIdx);
+                      }}
                       className="text-xs text-red-600 hover:text-red-800"
                       aria-label={`Delete row ${rowIdx + 1}`}
                     >
@@ -243,22 +240,27 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
             })}
           </tbody>
         </table>
-        {jsonData.length > 50 && (
+         {jsonData.length > 50 && (
           <div className="text-center py-2 text-xs text-gray-400 bg-gray-50 border-t border-gray-200">
             Showing 50 of {jsonData.length} rows
           </div>
         )}
-        <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-3 py-2">
-          <span className="text-xs text-gray-500">{jsonData.length} rows</span>
-          <button type="button" onClick={onAddRow} className="text-sm font-medium text-blue-600 hover:text-blue-800">
-            + Add row
-          </button>
-        </div>
-        <button type="button" onClick={() => onAddColumn()} className="w-full border-t border-gray-200 bg-white px-3 py-2 text-left text-sm font-medium text-blue-600 hover:bg-blue-50">
-          + Add column
-        </button>
-      </div>
-      <ChartPreview chartConfig={chartConfig} jsonData={jsonData} chartRef={chartRef} />
+         <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-3 py-2">
+           <span className="text-xs text-gray-500">{jsonData.length} rows will be exported</span>
+           <button type="button" onClick={onAddRow} className="text-sm font-medium text-blue-600 hover:text-blue-800">
+             + Add row
+           </button>
+         </div>
+       </div>
+       {searchTerm && visibleRows.length === 0 && (
+         <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500">No rows match "{searchTerm}". Clear the search to see all rows.</p>
+       )}
+       {invalidChartValues > 0 && (
+         <p role="status" className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+           {invalidChartValues} {invalidChartValues === 1 ? 'value is' : 'values are'} not numeric and will appear as 0 in the chart.
+         </p>
+       )}
+       <ChartPreview chartConfig={chartConfig} jsonData={jsonData} chartRef={chartRef} />
     </div>
   );
 }

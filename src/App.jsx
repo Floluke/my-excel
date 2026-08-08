@@ -73,7 +73,7 @@ export default function App() {
             </span>
             CEXCEL
           </h1>
-          <span className="text-sm text-gray-400">JSON → Custom .xlsx</span>
+          <span className="text-sm text-gray-400">Turn data into a ready-to-share .xlsx report</span>
         </div>
       </header>
 
@@ -87,7 +87,7 @@ export default function App() {
                 <span className="text-sm text-gray-500">File:</span>
                 <span className="text-sm font-medium text-gray-700">{fileName}</span>
                 <span className="text-xs text-gray-400 bg-gray-200 rounded-full px-2 py-0.5">
-                  {jsonData.length} rows
+                  {jsonData.length} rows - {columns.length} columns
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -97,13 +97,29 @@ export default function App() {
                 <button type="button" onClick={redo} disabled={!canRedo} className="text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300">
                   Redo
                 </button>
-                <button type="button" onClick={reset} className="text-sm text-red-500 hover:text-red-700 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Reset this report? Your current data and formatting will be removed.')) reset();
+                  }}
+                  className="text-sm text-red-500 hover:text-red-700 transition-colors"
+                >
                   Reset
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-blue-900">
+                <span className="text-sm font-semibold">Build your report</span>
+                <span className="text-blue-700">1. Review columns</span>
+                <span className="text-blue-700">2. Check preview</span>
+                <span className="text-blue-700">3. Export</span>
+              </div>
+              <p className="mt-1 text-xs text-blue-700">Formatting and charts are optional. Start with the data you want to include.</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="space-y-4">
                 <ColumnConfig
                   columns={columns}
@@ -113,23 +129,45 @@ export default function App() {
                   onAdd={addColumn}
                   onDelete={deleteColumn}
                 />
-                <HeaderTextEditor headerText={headerText} onChange={setHeaderText} />
-                <ChartConfigEditor chartConfig={chartConfig} columns={columns} onChange={setChartConfig} />
-              </div>
-              <div className="space-y-4">
-                <HeaderStyleEditor style={headerStyle} onChange={setHeaderStyle} />
-                <CellStyleEditor
-                  style={cellStyle}
-                  onChange={setCellStyle}
-                  alternateRow={alternateRow}
-                  alternateRowColor={alternateRowColor}
-                  onAlternateChange={setAlternateRow}
-                />
+                <details className="group rounded-xl border border-gray-200 bg-white">
+                  <summary className="cursor-pointer list-none px-4 py-3 font-semibold text-gray-800 marker:hidden">
+                    <span className="flex items-center justify-between">Report title <span className="text-xs font-normal text-gray-400 group-open:hidden">Optional</span></span>
+                  </summary>
+                  <div className="border-t border-gray-100 p-4">
+                    <HeaderTextEditor headerText={headerText} onChange={setHeaderText} />
+                  </div>
+                </details>
+                <details className="group rounded-xl border border-gray-200 bg-white">
+                  <summary className="cursor-pointer list-none px-4 py-3 font-semibold text-gray-800 marker:hidden">
+                    <span className="flex items-center justify-between">Chart <span className="text-xs font-normal text-gray-400 group-open:hidden">Optional</span></span>
+                  </summary>
+                  <div className="border-t border-gray-100 p-4">
+                    <ChartConfigEditor chartConfig={chartConfig} columns={columns} onChange={setChartConfig} />
+                  </div>
+                </details>
               </div>
               <div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                  <h3 className="font-semibold text-gray-800 mb-3">Export</h3>
-                  <ExportButton config={state} chartRef={chartRef} />
+                <div className="sticky top-4 space-y-4">
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <h3 className="font-semibold text-gray-800 mb-1">Export report</h3>
+                    <p className="text-sm text-gray-500 mb-4">Review the table below, then download the finished workbook.</p>
+                    <ExportButton config={state} chartRef={chartRef} />
+                  </div>
+                  <details className="group rounded-xl border border-gray-200 bg-white">
+                    <summary className="cursor-pointer list-none px-4 py-3 font-semibold text-gray-800 marker:hidden">
+                      <span className="flex items-center justify-between">Formatting <span className="text-xs font-normal text-gray-400 group-open:hidden">Optional</span></span>
+                    </summary>
+                    <div className="space-y-4 border-t border-gray-100 p-4">
+                      <HeaderStyleEditor style={headerStyle} onChange={setHeaderStyle} />
+                      <CellStyleEditor
+                        style={cellStyle}
+                        onChange={setCellStyle}
+                        alternateRow={alternateRow}
+                        alternateRowColor={alternateRowColor}
+                        onAlternateChange={setAlternateRow}
+                      />
+                    </div>
+                  </details>
                 </div>
               </div>
             </div>
@@ -142,9 +180,6 @@ export default function App() {
                   onUpdateCell={updateCell}
                   onAddRow={addRow}
                   onDeleteRow={deleteRow}
-                  onRenameColumn={renameColumn}
-                  onAddColumn={addColumn}
-                  onDeleteColumn={deleteColumn}
                   freezeHeader={freezeHeader}
                   onFreezeHeader={setFreezeHeader}
                 headerStyle={headerStyle}
