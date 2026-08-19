@@ -1,5 +1,9 @@
 import { useReducer, useCallback } from 'react';
 
+function isImageValue(value) {
+  return typeof value === 'string' && (/^data:image\//i.test(value) || /^https?:\/\//i.test(value));
+}
+
 const initialState = {
   jsonData: null,
   fileName: '',
@@ -50,7 +54,9 @@ function reduceState(state, action) {
             field: key,
             header: key,
             enabled: true,
-            format: 'general',
+            format: data.some((item) => isImageValue(item[key]))
+              ? 'image'
+              : 'general',
           }))
         : [];
       return {

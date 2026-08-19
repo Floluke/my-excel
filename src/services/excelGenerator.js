@@ -15,6 +15,49 @@ function buildBorderStyle(style, color) {
   };
 }
 
+function imageExtension(value, contentType = '') {
+  const type = contentType || value.match(/^data:image\/(png|jpeg|jpg|gif|webp);/i)?.[1];
+  if (type) return type.toLowerCase() === 'jpg' ? 'jpeg' : type.toLowerCase();
+  return value.match(/\.(png|jpe?g|gif|webp)(?:\?|$)/i)?.[1].toLowerCase().replace('jpg', 'jpeg') || 'png';
+}
+
+function base64FromArrayBuffer(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function loadImage(value) {
+  if (typeof value !== 'string' || !value) return null;
+
+  if (value.startsWith('data:image/')) {
+    const match = value.match(/^data:image\/[^;]+;base64,(.+)$/i);
+    return match ? { base64: match[1], extension: imageExtension(value) } : null;
+  }
+
+  if (!/^https?:\/\//i.test(value)) return null;
+  try {
+    const response = await fetch(value);
+    if (!response.ok) return null;
+    return {
+      base64: base64FromArrayBuffer(await response.arrayBuffer()),
+      extension: imageExtension(value, response.headers.get('content-type')?.split(';')[0]),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isImageColumn(column, rows) {
+  return column.format === 'image' || rows.some((row) => typeof row[column.field] === 'string' && (
+    row[column.field].startsWith('data:image/') || /^https?:\/\/[^\s]+\.(png|jpe?g|gif|webp)(\?[^\s]*)?$/i.test(row[column.field])
+  ));
+}
+
 export async function generateExcel({
   columns,
   jsonData,
@@ -39,7 +82,7 @@ export async function generateExcel({
   const excelCols = enabledCols.map((col) => ({
     header: col.header,
     key: col.field,
-    width: Math.max(col.header.length * 2 + 4, 14),
+    width: Math.max(col.header.length * 2 + 4, col.format === 'image' ? 18 : 14),
     style: col.format === 'number'
       ? { numFmt: '#,##0.00' }
       : col.format === 'date' ? { numFmt: 'yyyy-mm-dd' } : undefined,
@@ -124,6 +167,7 @@ export async function generateExcel({
   rows.forEach((_, index) => {
     const rowNum = firstDataRowNum + index;
     const excelRow = worksheet.getRow(rowNum);
+    if (enabledCols.some((col) => col.format === 'image')) excelRow.height = 60;
 
     const isAlternate = alternateRow && index % 2 === 1;
     const bgColor = isAlternate ? alternateRowColor : cellStyle.fillColor;
@@ -151,6 +195,23 @@ export async function generateExcel({
       }
     });
   });
+
+  const imageJobs = [];
+  enabledCols.forEach((column, columnIndex) => {
+    if (!isImageColumn(column, rows)) return;
+    rows.forEach((row, rowIndex) => {
+      imageJobs.push(loadImage(row[column.field]).then((image) => {
+        if (!image) return;
+        const imageId = workbook.addImage(image);
+        worksheet.addImage(imageId, {
+          tl: { col: columnIndex + 0.15, row: firstDataRowNum - 1 + rowIndex + 0.1 },
+          ext: { width: 52, height: 52 },
+        });
+        worksheet.getCell(firstDataRowNum + rowIndex, columnIndex + 1).value = '';
+      }));
+    });
+  });
+  await Promise.all(imageJobs);
 
   if (chartImageBase64) {
     try {

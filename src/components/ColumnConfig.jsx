@@ -43,6 +43,7 @@ export default function ColumnConfig({ columns, onToggle, onRename, onFormat, on
               <option value="general">Text</option>
               <option value="number">Number</option>
               <option value="date">Date</option>
+              <option value="image">Image</option>
             </select>
             <button
               type="button"
