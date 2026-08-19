@@ -27,6 +27,17 @@ function buildChartData(jsonData, xField, yField) {
   return { labels, values };
 }
 
+function isImageValue(value, column) {
+  if (column.format === 'image') return Boolean(value);
+  if (typeof value !== 'string') return false;
+  return /^data:image\/(png|jpeg|jpg|gif|webp);base64,/i.test(value)
+    || /^https?:\/\/[^\s]+\.(png|jpe?g|gif|webp)(\?[^\s]*)?$/i.test(value);
+}
+
+function isEmbeddedImage(value) {
+  return typeof value === 'string' && /^data:image\//i.test(value);
+}
+
 function ChartPreview({ chartConfig, jsonData, chartRef }) {
   if (!chartConfig.enabled || !chartConfig.xField || !chartConfig.yField) return null;
 
@@ -215,12 +226,24 @@ export default function ExportPreview({ columns, jsonData, onUpdateCell, onAddRo
                       }}
                       className="px-4 py-2 whitespace-nowrap"
                     >
-                      <input
-                        aria-label={`${col.header}, row ${rowIdx + 1}`}
-                        value={item[col.field] instanceof Date ? item[col.field].toISOString().slice(0, 10) : item[col.field] ?? ''}
-                        onChange={(event) => onUpdateCell(rowIdx, col.field, event.target.value)}
-                        className="w-full min-w-24 bg-transparent outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset"
-                      />
+                      <div className="flex min-w-24 items-center gap-2">
+                        {isImageValue(item[col.field], col) && (
+                          <img
+                            src={item[col.field]}
+                            alt={`${col.header}, row ${rowIdx + 1}`}
+                            className="h-12 w-12 shrink-0 rounded border border-gray-200 bg-gray-50 object-contain"
+                            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                          />
+                        )}
+                        {!isEmbeddedImage(item[col.field]) && (
+                        <input
+                          aria-label={`${col.header}, row ${rowIdx + 1}`}
+                          value={item[col.field] instanceof Date ? item[col.field].toISOString().slice(0, 10) : item[col.field] ?? ''}
+                          onChange={(event) => onUpdateCell(rowIdx, col.field, event.target.value)}
+                          className="min-w-24 flex-1 bg-transparent outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset"
+                        />
+                        )}
+                      </div>
                     </td>
                   ))}
                   <td className="px-2 py-2 bg-white">
