@@ -39,7 +39,6 @@ function parseCsv(text) {
 
 async function parseXlsx(file) {
   const buffer = await file.arrayBuffer();
-  const embeddedImages = extractEmbeddedImages(buffer);
   let workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(buffer);
@@ -61,8 +60,7 @@ async function parseXlsx(file) {
     };
     await xlsx.load(buffer);
   }
-  const worksheet = workbook.worksheets[0];
-  if (!worksheet) return [];
+  if (workbook.worksheets.length === 0) return [];
 
   const getCellValue = (value, emptyValue = '-') => {
     if (value && typeof value === 'object') {
@@ -74,6 +72,8 @@ async function parseXlsx(file) {
     return value === null || value === undefined || value === '' ? emptyValue : value;
   };
 
+  const parseWorksheet = (worksheet, sheetIndex) => {
+  const embeddedImages = extractEmbeddedImages(buffer, `xl/worksheets/sheet${sheetIndex + 1}.xml`);
   const rowValues = (rowNumber, emptyValue = '-') => Array.from(
     { length: worksheet.columnCount },
     (_, index) => getCellValue(worksheet.getRow(rowNumber).getCell(index + 1).value, emptyValue)
@@ -101,7 +101,10 @@ async function parseXlsx(file) {
       .forEach((image) => { item[headers[image.col]] = image.src; });
     if (Object.values(item).some((value) => value !== '-')) data.push(item);
   });
-  return data;
+  return { name: worksheet.name, data };
+  };
+
+  return workbook.worksheets.map(parseWorksheet).filter((sheet) => sheet.data.length > 0);
 }
 
 export default function FileUpload({ onJsonParsed, hasData }) {
@@ -114,28 +117,29 @@ export default function FileUpload({ onJsonParsed, hasData }) {
       setError('');
 
       try {
-          let data;
-          const extension = file.name.toLowerCase();
-          if (extension.endsWith('.xlsx')) {
-             data = await parseXlsx(file);
-          } else {
-            const text = await file.text();
-            data = extension.endsWith('.csv') ? parseCsv(text) : JSON.parse(text);
-          }
-          if (!Array.isArray(data) || data.length === 0) {
-            setError('The file must contain at least one data row.');
-            return;
-          }
-          if (data.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) {
-            setError('Every item in the JSON array must be an object.');
-            return;
-          }
-          if (data.some((item) => Object.values(item).some((value) => value !== null && typeof value === 'object' && !(value instanceof Date)))) {
-            setError('Nested objects and arrays are not supported yet. Flatten the data and try again.');
-            return;
-          }
-          const name = file.name.replace(/\.(json|csv|xlsx)$/i, '');
-          onJsonParsed(data, name);
+           let sheets;
+           const extension = file.name.toLowerCase();
+           if (extension.endsWith('.xlsx')) {
+             sheets = await parseXlsx(file);
+           } else {
+             const text = await file.text();
+             const data = extension.endsWith('.csv') ? parseCsv(text) : JSON.parse(text);
+             sheets = [{ name: file.name.replace(/\.(json|csv)$/i, ''), data }];
+           }
+           if (!Array.isArray(sheets) || sheets.length === 0 || sheets.some((sheet) => !Array.isArray(sheet.data) || sheet.data.length === 0)) {
+             setError('The file must contain at least one data row.');
+             return;
+           }
+           if (sheets.some((sheet) => sheet.data.some((item) => !item || typeof item !== 'object' || Array.isArray(item)))) {
+             setError('Every item in the JSON array must be an object.');
+             return;
+           }
+           if (sheets.some((sheet) => sheet.data.some((item) => Object.values(item).some((value) => value !== null && typeof value === 'object' && !(value instanceof Date))))) {
+             setError('Nested objects and arrays are not supported yet. Flatten the data and try again.');
+             return;
+           }
+           const name = file.name.replace(/\.(json|csv|xlsx)$/i, '');
+           onJsonParsed(sheets, name);
       } catch (parseError) {
         setError(`Could not read file: ${parseError.message}`);
       }

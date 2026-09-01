@@ -10,13 +10,13 @@ export default function ExportButton({ config, chartRef }) {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
-  const { jsonData, columns, headerStyle, cellStyle, alternateRow, alternateRowColor, fileName, headerText, chartConfig, freezeHeader } = config;
+  const { jsonData, columns, worksheets, headerStyle, cellStyle, alternateRow, alternateRowColor, fileName, headerText, chartConfig, freezeHeader } = config;
 
   const enabledCount = columns.filter((c) => c.enabled).length;
   const outputName = `${fileName || 'export'}.xlsx`;
 
   const handleExport = async () => {
-    if (!jsonData || enabledCount === 0) return;
+    if (!jsonData || enabledCount === 0 || worksheets.some((sheet) => !sheet.columns.some((column) => column.enabled))) return;
     setLoading(true);
     setFeedback(null);
     try {
@@ -37,6 +37,7 @@ export default function ExportButton({ config, chartRef }) {
         headerText: headerText.text ? headerText : null,
         chartImageBase64,
         freezeHeader,
+        worksheets,
       });
       setFeedback({ type: 'success', message: `${outputName} downloaded successfully.` });
     } catch (err) {
@@ -76,7 +77,7 @@ export default function ExportButton({ config, chartRef }) {
                 d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            Export {jsonData?.length ?? 0} rows
+            Export {worksheets.length > 1 ? `${worksheets.length} sheets` : `${jsonData?.length ?? 0} rows`}
           </>
         )}
       </button>

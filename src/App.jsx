@@ -31,12 +31,14 @@ export default function App() {
     reset,
     undo,
     redo,
+    setActiveSheet,
     canUndo,
     canRedo,
   } = useExcelConfig();
 
   const {
     jsonData, fileName, columns,
+    worksheets, activeSheetIndex,
     headerStyle, cellStyle, alternateRow, alternateRowColor,
     headerText, chartConfig,
     freezeHeader,
@@ -118,6 +120,25 @@ export default function App() {
               </div>
               <p className="mt-1 text-xs text-blue-700">Formatting and charts are optional. Start with the data you want to include.</p>
             </div>
+
+            {worksheets.length > 1 && (
+              <div className="mb-6 flex gap-1 overflow-x-auto border-b border-gray-200" role="tablist" aria-label="Worksheets">
+                {worksheets.map((sheet, index) => (
+                  <button
+                    key={`${sheet.name}-${index}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeSheetIndex === index}
+                    onClick={() => setActiveSheet(index)}
+                    className={`whitespace-nowrap rounded-t-lg border border-b-0 px-4 py-2 text-sm font-medium transition-colors ${activeSheetIndex === index
+                      ? 'border-gray-200 bg-white text-blue-700'
+                      : 'border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}
+                  >
+                    {sheet.name}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="space-y-4">

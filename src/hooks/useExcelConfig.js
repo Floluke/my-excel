@@ -8,6 +8,8 @@ const initialState = {
   jsonData: null,
   fileName: '',
   columns: [],
+  worksheets: [],
+  activeSheetIndex: 0,
   headerStyle: {
     fontName: 'Calibri',
     fontSize: 11,
@@ -44,100 +46,113 @@ const initialState = {
   freezeHeader: false,
 };
 
+function columnsForData(data) {
+  const keys = [...new Set(data.flatMap((item) => Object.keys(item)))];
+  return keys.map((key) => ({
+    field: key,
+    header: key,
+    enabled: true,
+    format: data.some((item) => isImageValue(item[key])) ? 'image' : 'general',
+  }));
+}
+
+function updateActiveSheet(state, update) {
+  const current = state.worksheets[state.activeSheetIndex];
+  const next = update(current);
+  return {
+    ...state,
+    ...next,
+    worksheets: state.worksheets.map((sheet, index) => index === state.activeSheetIndex ? next : sheet),
+  };
+}
+
 function reduceState(state, action) {
   switch (action.type) {
     case 'SET_JSON_DATA': {
-      const { data, fileName } = action.payload;
-      const keys = [...new Set(data.flatMap((item) => Object.keys(item)))];
-      const fields = data.length > 0
-        ? keys.map((key) => ({
-            field: key,
-            header: key,
-            enabled: true,
-            format: data.some((item) => isImageValue(item[key]))
-              ? 'image'
-              : 'general',
-          }))
-        : [];
+      const { sheets, fileName } = action.payload;
+      const worksheets = sheets.map((sheet) => ({
+        name: sheet.name,
+        jsonData: sheet.data,
+        columns: columnsForData(sheet.data),
+        headerText: { ...state.headerText },
+      }));
+      const active = worksheets[0];
       return {
         ...state,
-        jsonData: data,
+        jsonData: active.jsonData,
         fileName,
-        columns: fields,
+        columns: active.columns,
+        headerText: active.headerText,
+        worksheets,
+        activeSheetIndex: 0,
+      };
+    }
+    case 'SET_ACTIVE_SHEET': {
+      const active = state.worksheets[action.payload];
+      if (!active) return state;
+      return {
+        ...state,
+        activeSheetIndex: action.payload,
+        jsonData: active.jsonData,
+        columns: active.columns,
+        headerText: active.headerText,
       };
     }
     case 'TOGGLE_COLUMN': {
       const field = action.payload;
-      return {
-        ...state,
-        columns: state.columns.map((col) =>
-          col.field === field ? { ...col, enabled: !col.enabled } : col
-        ),
-      };
+      return updateActiveSheet(state, (sheet) => ({
+        ...sheet,
+        columns: sheet.columns.map((col) => col.field === field ? { ...col, enabled: !col.enabled } : col),
+      }));
     }
     case 'RENAME_COLUMN': {
       const { field, header } = action.payload;
-      return {
-        ...state,
-        columns: state.columns.map((col) =>
-          col.field === field ? { ...col, header } : col
-        ),
-      };
+      return updateActiveSheet(state, (sheet) => ({ ...sheet, columns: sheet.columns.map((col) => col.field === field ? { ...col, header } : col) }));
     }
     case 'SET_COLUMN_FORMAT':
-      return {
-        ...state,
-        columns: state.columns.map((col) =>
-          col.field === action.payload.field ? { ...col, format: action.payload.format } : col
-        ),
-      };
+      return updateActiveSheet(state, (sheet) => ({ ...sheet, columns: sheet.columns.map((col) => col.field === action.payload.field ? { ...col, format: action.payload.format } : col) }));
     case 'ADD_COLUMN': {
       const field = action.payload || `Column${state.columns.length + 1}`;
       const newColumn = { field, header: field, enabled: true, format: 'general' };
-      return {
-        ...state,
-        columns: [...state.columns, newColumn],
-        jsonData: state.jsonData.map((row) => ({ ...row, [field]: '' })),
-      };
+      return updateActiveSheet(state, (sheet) => ({ ...sheet, columns: [...sheet.columns, newColumn], jsonData: sheet.jsonData.map((row) => ({ ...row, [field]: '' })) }));
     }
     case 'DELETE_COLUMN': {
       const field = action.payload;
-      return {
-        ...state,
-        columns: state.columns.filter((col) => col.field !== field),
-        jsonData: state.jsonData.map((row) => {
+      return updateActiveSheet(state, (sheet) => ({
+        ...sheet,
+        columns: sheet.columns.filter((col) => col.field !== field),
+        jsonData: sheet.jsonData.map((row) => {
           const next = { ...row };
           delete next[field];
           return next;
         }),
-      };
+      }));
     }
     case 'UPDATE_CELL': {
       const { rowIndex, field, value } = action.payload;
-      return {
-        ...state,
-        jsonData: state.jsonData.map((row, index) =>
+      return updateActiveSheet(state, (sheet) => ({
+        ...sheet,
+        jsonData: sheet.jsonData.map((row, index) =>
           index === rowIndex ? { ...row, [field]: value } : row
         ),
-      };
+      }));
     }
     case 'ADD_ROW': {
       const newRow = Object.fromEntries(state.columns.map((column) => [column.field, '']));
-      return { ...state, jsonData: [...state.jsonData, newRow] };
+      return updateActiveSheet(state, (sheet) => ({ ...sheet, jsonData: [...sheet.jsonData, newRow] }));
     }
     case 'DELETE_ROW':
-      return {
-        ...state,
-        jsonData: state.jsonData.filter((_, index) => index !== action.payload),
-      };
+      return updateActiveSheet(state, (sheet) => ({ ...sheet, jsonData: sheet.jsonData.filter((_, index) => index !== action.payload) }));
     case 'SET_HEADER_STYLE':
       return { ...state, headerStyle: { ...state.headerStyle, ...action.payload } };
     case 'SET_CELL_STYLE':
       return { ...state, cellStyle: { ...state.cellStyle, ...action.payload } };
     case 'SET_ALTERNATE_ROW':
       return { ...state, ...action.payload };
-    case 'SET_HEADER_TEXT':
-      return { ...state, headerText: { ...state.headerText, ...action.payload } };
+    case 'SET_HEADER_TEXT': {
+      const headerText = { ...state.headerText, ...action.payload };
+      return updateActiveSheet(state, (sheet) => ({ ...sheet, headerText }));
+    }
     case 'SET_CHART_CONFIG':
       return { ...state, chartConfig: { ...state.chartConfig, ...action.payload } };
     case 'SET_FREEZE_HEADER':
@@ -187,8 +202,12 @@ export function useExcelConfig() {
     future: [],
   });
 
-  const setJsonData = useCallback((data, fileName) => {
-    dispatch({ type: 'SET_JSON_DATA', payload: { data, fileName } });
+  const setJsonData = useCallback((sheets, fileName) => {
+    dispatch({ type: 'SET_JSON_DATA', payload: { sheets, fileName } });
+  }, []);
+
+  const setActiveSheet = useCallback((index) => {
+    dispatch({ type: 'SET_ACTIVE_SHEET', payload: index });
   }, []);
 
   const toggleColumn = useCallback((field) => {
@@ -257,6 +276,7 @@ export function useExcelConfig() {
   return {
     state: history.present,
     setJsonData,
+    setActiveSheet,
     toggleColumn,
     renameColumn,
     setColumnFormat,

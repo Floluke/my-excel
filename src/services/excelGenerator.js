@@ -69,14 +69,21 @@ export async function generateExcel({
   headerText,
   chartImageBase64,
   freezeHeader,
+  worksheets,
 }) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'CEXCEL';
   workbook.created = new Date();
 
-  const worksheet = workbook.addWorksheet('Sheet1');
+  const sheetConfigs = worksheets?.length ? worksheets : [{ name: 'Sheet1', columns, jsonData }];
 
-  const enabledCols = columns.filter((c) => c.enabled);
+  for (const sheetConfig of sheetConfigs) {
+  const worksheet = workbook.addWorksheet(sheetConfig.name || 'Sheet1');
+  const sheetColumns = sheetConfig.columns || columns;
+  const sheetData = sheetConfig.jsonData || jsonData;
+  const sheetHeaderText = sheetConfig.headerText || headerText;
+
+  const enabledCols = sheetColumns.filter((c) => c.enabled);
   const totalCols = enabledCols.length;
 
   const excelCols = enabledCols.map((col) => ({
@@ -88,25 +95,25 @@ export async function generateExcel({
       : col.format === 'date' ? { numFmt: 'yyyy-mm-dd' } : undefined,
   }));
   worksheet.columns = excelCols;
-  if (freezeHeader) worksheet.views = [{ state: 'frozen', ySplit: 1 + (headerText?.text ? 1 : 0) }];
+  if (freezeHeader) worksheet.views = [{ state: 'frozen', ySplit: 1 + (sheetHeaderText?.text ? 1 : 0) }];
 
   let rowOffset = 0;
 
-  if (headerText && headerText.text) {
+  if (sheetHeaderText && sheetHeaderText.text) {
     worksheet.insertRow(1, []);
     const textRow = worksheet.getRow(1);
-    textRow.height = Math.max(22, Number(headerText.fontSize) + 10);
+    textRow.height = Math.max(22, Number(sheetHeaderText.fontSize) + 10);
 
-    textRow.getCell(1).value = headerText.text;
+    textRow.getCell(1).value = sheetHeaderText.text;
     if (totalCols > 1) {
       worksheet.mergeCells(1, 1, 1, totalCols);
     }
 
     textRow.getCell(1).font = {
-      name: headerText.fontName || 'Calibri',
-      size: Number(headerText.fontSize) || 16,
-      color: { argb: toArgb(headerText.fontColor) },
-      bold: headerText.bold !== false,
+      name: sheetHeaderText.fontName || 'Calibri',
+      size: Number(sheetHeaderText.fontSize) || 16,
+      color: { argb: toArgb(sheetHeaderText.fontColor) },
+      bold: sheetHeaderText.bold !== false,
     };
     textRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
     rowOffset = 1;
@@ -146,7 +153,7 @@ export async function generateExcel({
 
   const cellHasBorder = cellStyle.borderStyle && cellStyle.borderStyle !== 'none';
 
-  const rows = jsonData.map((item) => {
+  const rows = sheetData.map((item) => {
     const row = {};
     enabledCols.forEach((col) => {
       const value = item[col.field];
@@ -230,6 +237,7 @@ export async function generateExcel({
     } catch (e) {
       console.warn('Chart embed failed:', e);
     }
+  }
   }
 
   const buffer = await workbook.xlsx.writeBuffer();
